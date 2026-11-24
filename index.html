@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>少即試多 畢業展</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 畢展的圖板，安靜、精準，細線與標註像施工圖
+   IDEA: 首頁就是主視覺本身，每一塊黑色圖塊是一扇門
+   PICTURE: 可互動的主視覺：游標是十字靶與座標，條碼隨滑鼠錯動，點圖塊展開成單元
+   COLOUR and TYPE: 草綠 #b6c867 / 紙白 #e7edcc / 墨黑 #140d0c / 橘 #e8561b；點陣字 + Noto Sans TC
+   LAYOUT: 首頁全屏主視覺；作品是弧形展牆；回顧、評圖、訪談是紙白點格底的長頁 */
+:root{color-scheme:light;--g:#b6c867;--paper:#e7edcc;--ink:#140d0c;--or:#e8561b;--mute:rgba(20,13,12,.6);--dots:radial-gradient(rgba(20,13,12,.32) 1.1px,transparent 1.5px) 0 0/28px 28px}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 "Noto Sans TC",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;text-align:inherit}
+a{color:inherit}
+button:focus-visible,a:focus-visible{outline:2px solid var(--or);outline-offset:3px}
+header{position:fixed;inset:0 0 auto;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px max(2.4vw,14px);pointer-events:none}
+header>*{pointer-events:auto}
+.logo{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;background:var(--ink);fill:#fff;stroke:#fff;text-decoration:none}
+.logo svg{height:100%;width:auto;display:block}
+.quick{display:flex;gap:2px;margin-left:auto}
+.quick a{display:flex;align-items:center;min-height:40px;padding:0 12px;font-size:14px;text-decoration:none;border-bottom:1px solid transparent}
+.quick a:hover{color:var(--or)}
+.quick a[aria-current]{border-bottom-color:var(--ink);font-weight:500}
+#nav{position:fixed;inset:0;background:var(--ink);display:flex;flex-direction:column;justify-content:center;padding:90px max(6vw,24px) 40px;visibility:hidden;opacity:0;transition:opacity .3s,visibility .3s}
+body.menu #nav{visibility:visible;opacity:1}
+#nav a{display:flex;align-items:baseline;justify-content:space-between;gap:16px;width:min(100%,980px);margin:0 auto;color:#f3f5e8;font-size:clamp(28px,4.4vw,52px);font-weight:300;line-height:1.2;padding:12px 0;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.2)}
+#nav a::after{content:attr(data-en);font-size:14px;color:rgba(243,245,232,.55)}
+#nav a:hover,#nav a[aria-current]{color:var(--or)}
+.mb{display:block;position:relative;z-index:2;min-height:40px;padding:0 16px;border:1px solid var(--ink);background:rgba(231,237,204,.88);font-size:14px}
+body.menu .mb{background:var(--ink);color:#f3f5e8;border-color:#f3f5e8}
+.view{position:fixed;inset:0;display:none}
+.view.on{display:block}
+.scrolly{overflow:auto;overscroll-behavior:contain;background:var(--dots),var(--paper)}
+
+/* ===== 首頁 ===== */
+#v-home{background-repeat:repeat;background-color:var(--g)}
+#kv{position:absolute;left:0;right:0;top:62px;bottom:46px;width:100%;height:calc(100% - 108px)}
+.nb{cursor:pointer;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .35s;transform-box:fill-box}
+.nb:hover,.nb:focus-visible{transform:translate(-6px,-9px);outline:none}
+.nb .sh{transition:filter .35s}
+.nb:hover .sh,.nb:focus-visible .sh{filter:drop-shadow(10px 16px 0 rgba(20,13,12,.22))}
+.nb .lb{fill:var(--ink);transition:fill .2s}
+.nb:hover .lb,.nb:focus-visible .lb{fill:var(--or)}
+.in{animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}}
+@media(pointer:fine){#kv{cursor:none}}
+#cur{pointer-events:none}
+.hint{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 max(2.4vw,14px);font-size:13px;border-top:1px solid var(--ink);background:repeating-linear-gradient(90deg,var(--ink) 0 1px,transparent 1px 10px) 0 0/100% 6px repeat-x}
+.hint b{font-weight:500}
+#wipe{position:fixed;z-index:30;background:var(--ink);pointer-events:none;display:none}
+
+/* ===== 作品展牆 ===== */
+#v-works{background:linear-gradient(#eef2dc 0,#e7edcc 30%,#d3dda0 64%,#c2cf7d 100%)}
+#stage{position:absolute;inset:0;overflow:hidden;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+#stage.drag{cursor:grabbing}
+#world{position:absolute;left:50%;top:47%;transform-style:preserve-3d}
+.seg{position:absolute;left:0;top:0;backface-visibility:hidden;background-repeat:repeat-x;background-color:var(--g)}
+.p{position:absolute;left:0;top:0;backface-visibility:hidden;cursor:pointer;padding-top:30px}
+.p .art{position:relative;width:100%;height:100%;background:var(--ink);box-shadow:0 22px 34px -20px rgba(20,13,12,.7);transition:transform .35s}
+.p:hover .art{transform:translateY(-6px)}
+.art svg{display:block;width:100%;height:100%}
+.ticks::after{content:"";position:absolute;inset:-4px;pointer-events:none;background:linear-gradient(var(--or),var(--or)) 0 0/7px 7px no-repeat,linear-gradient(var(--or),var(--or)) 100% 0/7px 7px no-repeat,linear-gradient(var(--or),var(--or)) 0 100%/7px 7px no-repeat,linear-gradient(var(--or),var(--or)) 100% 100%/7px 7px no-repeat}
+.dim{position:absolute;left:0;right:0;top:6px;height:10px;border-left:1px solid currentColor;border-right:1px solid currentColor;font-size:11px;text-align:center;line-height:1}
+.dim::before{content:"";position:absolute;left:0;right:0;top:5px;border-top:1px solid currentColor}
+.dim span{position:relative;top:-9px;padding:0 4px}
+.lab{position:absolute;left:0;top:calc(100% + 16px);width:max(100%,160px);font-size:13px;line-height:1.35}
+.lab b{display:block;font-weight:500}.lab i{font-style:normal;color:var(--mute);font-size:12px}
+  .wn{position:absolute;top:47%;transform:translateY(-50%);z-index:3;width:48px;height:48px;border:1px solid var(--ink);background:rgba(231,237,204,.85);font-size:18px;text-align:center}
+.wn:hover{background:var(--ink);color:var(--paper)}
+#wl{left:max(2.4vw,12px)}#wr{right:max(2.4vw,12px)}
+#cap{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);text-align:center;width:min(92vw,560px);pointer-events:none}
+#cap .n,#cap .a{font-size:13px;color:var(--mute)}
+#cap .t{font-size:clamp(18px,2.2vw,22px);font-weight:500;line-height:1.3}
+#ruler{position:absolute;left:0;right:0;bottom:0;height:40px;border-top:1px solid var(--ink);background:repeating-linear-gradient(90deg,var(--ink) 0 1px,transparent 1px 10px) 0 0/100% 7px repeat-x,repeating-linear-gradient(90deg,var(--ink) 0 1px,transparent 1px 100px) 0 0/100% 15px repeat-x;display:flex;align-items:flex-end;justify-content:space-between;padding:0 max(2.4vw,14px) 6px;font-size:13px}
+
+/* ===== 長頁共用 ===== */
+.page{max-width:1320px;margin:0 auto;padding:96px max(4vw,16px) 90px}
+.ph1{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px 24px;padding-bottom:18px;border-bottom:1px solid var(--ink);margin-bottom:8px}
+.ph1 h1{margin:0;font-size:clamp(34px,5.4vw,60px);font-weight:500;line-height:1.05}
+.ph1 .en{font-size:clamp(16px,1.8vw,20px);font-weight:300}
+.ph1 p{grid-column:1/-1;margin:6px 0 0;max-width:36em;color:var(--mute)}
+.note{font-size:13px;color:var(--mute)}
+.pic{position:relative;background:#9aa57a;overflow:hidden}
+.pic svg{display:block;width:100%;height:100%}
+
+/* 展覽回顧 */
+.rtabs{position:sticky;top:0;z-index:4;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0 4px;margin:6px calc(-1*max(4vw,16px)) 0;padding:62px max(4vw,16px) 0;background:linear-gradient(var(--paper) 85%,rgba(231,237,204,0));border-bottom:1px solid rgba(20,13,12,.25)}
+.rtabs a{flex:none;display:flex;align-items:center;min-height:44px;padding:0 14px;font-size:15px;text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.rtabs a[aria-current]{border-bottom-color:var(--or);font-weight:500}
+.rtabs a:hover{color:var(--or)}
+.chap{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(0,1fr);gap:clamp(24px,3.6vw,56px);padding:56px 0;border-bottom:1px solid rgba(20,13,12,.25);scroll-margin-top:110px}
+.gal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start}
+.shot{position:relative;cursor:zoom-in;display:block;width:100%}
+.shot .pic{width:100%;height:100%}
+.shot.w{grid-column:1/-1;aspect-ratio:16/10}.shot.h{aspect-ratio:4/5}.shot.s{aspect-ratio:4/3}
+.shot:hover .pic{outline:2px solid var(--or);outline-offset:3px}
+.shot i{position:absolute;left:10px;bottom:8px;font-style:normal;font-size:12px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.ctext{position:sticky;top:130px;align-self:start}
+.ctext .no{font-size:13px;color:var(--or);font-weight:500}
+.ctext h2{font-size:clamp(28px,3vw,40px);font-weight:700;line-height:1.15;margin:8px 0 4px;text-wrap:balance}
+.ctext .en{font-weight:300;font-size:17px;margin:0 0 20px}
+.ctext dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0 0 22px;padding:12px 0;border-top:1px solid var(--ink);border-bottom:1px solid rgba(20,13,12,.25);font-size:14px}
+.ctext dt{color:var(--mute)}.ctext dd{margin:0}
+.ctext p{font-size:16px;line-height:1.9;margin:0 0 14px}
+.ctext .cnt{font-size:13px;color:var(--mute);margin-top:18px}
+
+/* 評圖回顧 */
+.sruler{position:relative;height:96px;margin:28px 0 30px;border-bottom:1px solid var(--ink);background:repeating-linear-gradient(90deg,var(--ink) 0 1px,transparent 1px 2%) 0 100%/100% 8px no-repeat}
+.sruler button{position:absolute;bottom:0;transform:translateX(-50%);white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 6px 14px;min-height:44px;font-size:14px;line-height:1.25;text-align:center}
+.sruler button::after{content:"";width:12px;height:12px;background:var(--ink);position:absolute;bottom:-6px}
+.sruler button[aria-pressed=true]::after{background:var(--or)}
+.sruler button[aria-pressed=true]{font-weight:500}
+.sruler small{font-size:12px;color:var(--mute)}
+.sess{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:clamp(22px,4vw,56px)}
+.sess .big{aspect-ratio:4/3}
+.sess .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.sess .row3 .pic{aspect-ratio:4/3}
+.sess h2{margin:0 0 2px;font-size:clamp(26px,3.2vw,36px);font-weight:500;line-height:1.1}
+.sess dl{display:grid;grid-template-columns:auto 1fr;gap:6px 20px;margin:22px 0;padding-top:14px;border-top:1px solid var(--ink);font-size:15px}
+.sess dt{color:var(--mute)}.sess dd{margin:0}
+.sess h3{font-size:15px;font-weight:500;margin:26px 0 10px}
+.wk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.wk button{font-size:13px;line-height:1.3}
+.wk .th{aspect-ratio:1;background:var(--ink);margin-bottom:6px;overflow:hidden}
+.wk .th svg{width:100%;height:100%;display:block}
+.wk button:hover .th{outline:2px solid var(--or);outline-offset:2px}
+
+/* 訪談 */
+.tl{list-style:none;margin:0;padding:0}
+.tl button{width:100%;display:grid;grid-template-columns:3.2em minmax(0,1fr) auto;gap:4px 20px;align-items:baseline;padding:24px 0;border-bottom:1px solid rgba(20,13,12,.3)}
+.tl .i{font-size:14px;color:var(--mute)}
+.tl .t{font-size:clamp(22px,3.2vw,38px);font-weight:500;line-height:1.15;transition:color .2s}
+.tl .m{font-size:14px;color:var(--mute);text-align:right;white-space:nowrap}
+.tl .w{grid-column:2/-1;font-size:15px}
+.tl button:hover .t{color:var(--or)}
+/* 訪談：報導者式的編輯排版 */
+.ttabs{display:flex;flex-wrap:wrap;gap:0 4px;margin:6px 0 30px;border-bottom:1px solid rgba(20,13,12,.25)}
+.ttabs button{min-height:44px;padding:0 14px;font-size:15px;border-bottom:3px solid transparent;margin-bottom:-1px}
+.ttabs button[aria-pressed=true]{border-bottom-color:var(--or);font-weight:500}
+.ttabs button:hover{color:var(--or)}
+.feat{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:clamp(20px,3vw,44px);align-items:center;cursor:pointer}
+.feat .pic{aspect-ratio:16/10}
+.feat:hover h2{color:var(--or)}
+.kk{display:inline-block;font-size:13px;font-weight:500;color:var(--or);margin-bottom:10px}
+.feat h2{font-size:clamp(28px,3.6vw,44px);font-weight:700;line-height:1.18;margin:0 0 14px;text-wrap:balance;transition:color .2s}
+.feat .dk2{font-size:17px;line-height:1.75;color:rgba(20,13,12,.78);margin:0 0 16px}
+.meta{font-size:13px;color:var(--mute)}
+.fnav{display:flex;align-items:center;gap:10px;margin:18px 0 0}
+.fnav button{width:44px;height:44px;border:1px solid var(--ink);font-size:16px;text-align:center}
+.fnav button:hover{background:var(--ink);color:var(--paper)}
+.fnav span{font-size:13px;color:var(--mute);margin-left:4px}
+.tgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 40px}
+.titem{display:grid;grid-template-columns:minmax(0,38%) minmax(0,1fr);gap:18px;padding:22px 0;border-bottom:1px solid rgba(20,13,12,.2);width:100%}
+.titem .pic{aspect-ratio:4/3}
+.titem h3{font-size:19px;font-weight:700;line-height:1.35;margin:2px 0 6px;transition:color .2s}
+.titem p{margin:0 0 6px;font-size:14px;color:var(--mute);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.titem:hover h3{color:var(--or)}
+.titem .kk{margin:0;font-size:12px}
+#prog{position:fixed;left:0;top:0;height:3px;width:0;background:var(--or);z-index:16}
+#v-talk{background:#f4f6ea}
+.rd{padding:84px 0 90px}
+.rhead{max-width:820px;margin:0 auto;padding:0 max(5vw,18px);text-align:center}
+.back{display:inline-flex;align-items:center;min-height:44px;font-size:14px;text-decoration:none;color:var(--mute)}
+.back:hover{color:var(--or)}
+.rhead h1{font-size:clamp(32px,5vw,56px);font-weight:700;line-height:1.15;margin:6px 0 18px;text-wrap:balance}
+.rhead .dk2{font-size:clamp(17px,1.8vw,20px);line-height:1.75;color:rgba(20,13,12,.75);margin:0 auto;max-width:36em}
+.hero{max-width:1240px;margin:40px auto 0;padding:0 max(3vw,0px)}
+.hero .pic{aspect-ratio:2/1}
+.cap{font-size:13px;color:var(--mute);margin:8px max(3vw,16px) 0}
+.by{max-width:680px;margin:34px auto 0;padding:14px max(5vw,18px);display:flex;flex-wrap:wrap;gap:6px 26px;font-size:14px;border-top:1px solid var(--ink);border-bottom:1px solid rgba(20,13,12,.25)}
+.by b{font-weight:500;margin-right:6px;color:var(--mute)}
+.body{max-width:680px;margin:0 auto;padding:30px max(5vw,18px) 0;font-size:18px;line-height:1.95}
+.body .lead{font-size:20px;line-height:1.85;margin:0 0 30px}
+.body .q{font-weight:700;margin:40px 0 10px;display:flex;gap:12px;line-height:1.6}
+.body .q::before{content:"";flex:none;width:10px;height:10px;background:var(--or);margin-top:.6em}
+.body .a{margin:0 0 18px}
+.pq{margin:48px 0;padding:22px 0;border-top:3px solid var(--or);border-bottom:1px solid var(--ink);font-size:clamp(22px,2.6vw,28px);font-weight:500;line-height:1.55;text-align:center}
+.body figure{margin:40px 0}.body figure .pic{aspect-ratio:3/2}.body figcaption{font-size:13px;color:var(--mute);margin-top:8px;line-height:1.5}
+.more{max-width:1240px;margin:70px auto 0;padding:0 max(4vw,16px)}
+.more h2{font-size:18px;font-weight:500;margin:0;padding-bottom:10px;border-bottom:1px solid var(--ink)}
+.more .tgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.more .titem{grid-template-columns:minmax(0,1fr);gap:10px}
+#hov{position:fixed;width:260px;aspect-ratio:4/3;pointer-events:none;z-index:12;opacity:0;transition:opacity .2s;box-shadow:0 20px 40px -20px rgba(20,13,12,.6)}
+#hov.on{opacity:1}
+
+/* 關於 */
+.lines p{margin:0 0 12px;font-size:clamp(22px,3vw,34px);font-weight:300;line-height:1.3}
+.lines b{font-weight:500}
+.cred{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:40px;padding-top:16px;border-top:1px solid var(--ink);font-size:15px}
+.cred h3{font-size:14px;font-weight:500;margin:0 0 4px}
+
+/* ===== 黑板浮層（作品詳情、訪談全文、照片） ===== */
+.ov{position:fixed;inset:0;z-index:20;visibility:hidden;pointer-events:none}
+.ov.on{visibility:visible;pointer-events:auto}
+.veil{position:absolute;inset:0;background:rgba(222,230,188,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .5s}
+.ov.on .veil{opacity:1}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:min(1060px,100%);background:var(--ink);color:#f3f5e8;transform:translateX(102%);transition:transform .65s cubic-bezier(.2,.8,.2,1);overflow:auto;overscroll-behavior:contain}
+.ov.on .sheet{transform:none}
+.deco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5}
+.x{position:sticky;top:0;float:right;z-index:2;min-height:44px;padding:0 20px;font-size:14px;color:#f3f5e8;border-left:1px solid rgba(255,255,255,.25);border-bottom:1px solid rgba(255,255,255,.25);background:var(--ink)}
+.x:hover{color:var(--or)}
+.dg{position:relative;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:clamp(24px,4vw,56px);padding:clamp(56px,7vh,84px) clamp(20px,4vw,56px) 48px}
+.bigart{position:relative;background:#000}
+.bigart svg{display:block;width:100%;height:auto}
+.thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.thumbs div{aspect-ratio:4/3;outline:1px solid rgba(255,255,255,.22)}
+.thumbs svg{width:100%;height:100%;display:block}
+.info{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 26px;align-content:start}
+.vt{grid-row:1/5;writing-mode:vertical-rl;margin:0;font-weight:300;font-size:clamp(30px,4.4vw,48px);letter-spacing:.18em;line-height:1.1}
+.no{font-size:13px;color:var(--or)}
+.en2{font-size:20px;font-weight:300;margin:6px 0 22px;line-height:1.25;text-wrap:balance}
+.info dl{margin:0 0 22px;display:grid;grid-template-columns:auto 1fr;gap:6px 18px;font-size:14px;border-top:1px solid rgba(255,255,255,.3);padding-top:14px}
+.info dt{color:rgba(243,245,232,.55)}.info dd{margin:0}
+.txt{font-size:15px;line-height:1.75;color:rgba(243,245,232,.85);grid-column:1/-1;margin:24px 0 0;max-width:34em}
+.pn{grid-column:1/-1;display:flex;gap:8px;margin-top:28px}
+.pn button{flex:1;min-height:46px;border:1px solid rgba(255,255,255,.4);font-size:14px;text-align:center}
+.pn button:hover{border-color:var(--or);color:var(--or)}
+.dk{color:rgba(243,245,232,.45);font-size:13px;grid-column:1/-1;margin-top:18px}
+.art2{position:relative;max-width:760px;margin:0 auto;padding:clamp(60px,8vh,90px) clamp(20px,4vw,40px) 60px}
+.art2 h2{font-size:clamp(30px,4.6vw,50px);font-weight:500;line-height:1.08;margin:8px 0 10px;text-wrap:balance}
+.art2 .who{color:rgba(243,245,232,.65);margin:0 0 26px}
+.art2 .pic{aspect-ratio:16/9;margin-bottom:30px}
+.art2 .q{font-weight:500;margin:30px 0 6px;padding-left:14px;border-left:3px solid var(--or)}
+.art2 .a{margin:0;color:rgba(243,245,232,.85);line-height:1.8}
+#lb .box{position:absolute;inset:60px max(4vw,16px) 70px;display:grid;place-items:center}
+#lb .box .pic{width:min(100%,calc((100vh - 130px)*1.5));aspect-ratio:3/2;box-shadow:0 30px 60px -30px rgba(20,13,12,.7)}
+#lb .bar{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:8px}
+#lb .bar button,#lb .close{min-height:44px;padding:0 18px;border:1px solid var(--ink);background:var(--paper);font-size:14px}
+#lb .close{position:absolute;top:14px;right:max(2.4vw,14px)}
+@media(max-width:760px){
+ .chap{grid-template-columns:minmax(0,1fr);padding:40px 0}
+ .ctext{position:static;order:-1}
+
+ .sess,.dg{grid-template-columns:minmax(0,1fr)}
+ .dg{padding-top:60px}
+ .vt{writing-mode:horizontal-tb;grid-row:auto;grid-column:1/-1;font-size:30px;letter-spacing:.06em;margin-top:6px}
+ .info{grid-template-columns:minmax(0,1fr)}
+ .feat,.tgrid,.more .tgrid{grid-template-columns:minmax(0,1fr)}
+ .feat h2{font-size:28px}
+ .titem{grid-template-columns:minmax(0,34%) minmax(0,1fr);gap:14px}
+ .titem h3{font-size:17px}
+ .hero{padding:0}.hero .pic{aspect-ratio:4/3}
+ .body{font-size:17px}.body .lead{font-size:18px}
+ .sruler button{font-size:13px;padding:0 2px 14px}
+ .hint .s{display:none}
+ #hov{display:none}
+}
+@media(max-width:560px){.quick{display:none}.filt{top:62px}.shop{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 14px}.item h2{flex-direction:column;gap:0;font-size:17px}}
+/* 作品分類、周邊、關於 */
+.filt{position:absolute;left:0;right:0;top:66px;z-index:3;display:flex;justify-content:center;flex-wrap:wrap;gap:2px 4px;padding:0 12px}
+.filt button{min-height:40px;padding:0 12px;font-size:14px;border-bottom:1px solid transparent}
+.filt button small{color:var(--mute);margin-left:4px}
+.filt button[aria-pressed=true]{border-bottom-color:var(--ink);font-weight:500}
+.filt button:hover{color:var(--or)}
+.grp{font-size:15px;font-weight:500;margin:44px 0 0;padding-bottom:8px;border-bottom:1px solid var(--ink);display:flex;justify-content:space-between}
+.grp span{font-weight:300;color:var(--mute)}
+.shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:44px 28px;margin-top:40px}
+.item .pic{aspect-ratio:1;background:var(--ink)}
+.item h2{font-size:20px;font-weight:500;margin:14px 0 2px;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.item h2 span{font-size:15px;font-weight:400;white-space:nowrap}
+.item p{margin:0;color:var(--mute);font-size:15px}
+.buy{margin-top:46px;padding-top:16px;border-top:1px solid var(--ink);display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline}
+.links a{display:inline-flex;align-items:center;min-height:40px;margin-right:18px;text-decoration:underline;text-underline-offset:4px}
+.links a:hover{color:var(--or)}
+.links .off{color:var(--mute);text-decoration:none}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="#home" id="logo" aria-label="回到首頁"></a>
+  <div class="quick"><a href="#shop">周邊商品</a><a href="#about">關於</a></div>
+  <nav id="nav" aria-label="選單">
+    <a href="#home" data-en="Home">首頁</a><a href="#works" data-en="Works">作品</a><a href="#crits" data-en="Reviews">評圖回顧</a><a href="#recap" data-en="Recap">展覽回顧</a><a href="#talks" data-en="Conversations">訪談專欄</a><a href="#shop" data-en="Shop">周邊商品</a><a href="#about" data-en="About">關於</a>
+  </nav>
+  <button class="mb" id="mb" aria-expanded="false" aria-controls="nav">選單</button>
+</header>
+
+<main class="view" id="v-home">
+  <svg id="kv" role="navigation" aria-label="主視覺：點選圖塊進入各單元"></svg>
+  <div class="hint"><b>點選黑色圖塊進入</b><span class="s">國立雲林科技大學 建築與室內設計系 116級畢業設計</span><span id="xy">少即試多</span></div>
+</main>
+
+<main class="view" id="v-works">
+  <div class="filt" id="filt"></div>
+  <div id="stage" aria-label="作品展牆，左右拖曳瀏覽"><div id="world"></div></div>
+  <button class="wn" id="wl" aria-label="上一件">←</button><button class="wn" id="wr" aria-label="下一件">→</button>
+  <div id="cap" aria-live="polite"><div class="n"></div><div class="t"></div><div class="a"></div></div>
+  <div id="ruler"><b>作品 Works</b><span id="rd">0</span><span>116th Graduation Exhibition</span></div>
+</main>
+
+<main class="view scrolly" id="v-recap"><div class="page">
+  <div class="ph1"><h1>展覽回顧</h1><span class="en">Exhibition Recap</span><p>四年級這一年參與過的五場展覽。</p></div>
+  <nav class="rtabs" id="rtabs" aria-label="展覽"></nav>
+  <div id="chaps"></div>
+  <p class="note" style="margin-top:20px">目前照片與日期為示意佔位，展覽結束後替換。</p>
+</div></main>
+
+<main class="view scrolly" id="v-crits"><div class="page">
+  <div class="ph1"><h1>評圖回顧</h1><span class="en">Reviews</span><p>四上、四下交流評與其他評圖。每一場的評審、紀錄與當天上台的作品。</p></div>
+  <div class="sruler" id="sruler"></div>
+  <div class="sess" id="sess"></div>
+</div></main>
+
+<main class="view scrolly" id="v-talks"><div class="page">
+  <div class="ph1"><h1>訪談專欄</h1><span class="en">Conversations</span><p>教授專訪，以及雲科建築 116 級畢籌會的幕後。</p></div>
+  <div class="ttabs" id="ttabs"></div>
+  <section class="feat" id="feat" tabindex="0" role="link"></section>
+  <div id="tl"></div>
+  <p class="note" style="margin-top:20px">目前題目與受訪者為示意佔位。</p>
+</div></main>
+
+<main class="view scrolly" id="v-talk"><div id="prog"></div><article class="rd" id="art"></article></main>
+
+<main class="view scrolly" id="v-about"><div class="page">
+  <div class="ph1"><h1>少即試多</h1><span class="en">Less is "Trying" More</span></div>
+  <div class="lines" style="margin-top:34px">
+    <p>Every idea begins with a try.</p>
+    <p>Less certainty. <b>More exploration.</b></p>
+    <p>Less perfection. <b>More experimentation.</b></p>
+    <p>Less fear. <b>More possibility.</b></p>
+  </div>
+  <div class="cred" id="cred"></div>
+</div></main>
+
+<main class="view scrolly" id="v-shop"><div class="page">
+  <div class="ph1"><h1>周邊商品</h1><span class="en">Shop</span><p>畢展限定的周邊。</p></div>
+  <div class="shop" id="shop"></div>
+  <div class="buy" id="buy"></div>
+  <p class="note" style="margin-top:20px">目前品項與價格為示意佔位。</p>
+</div></main>
+
+<div id="hov" class="pic"></div>
+<div id="wipe"></div>
+<div class="ov" id="det" role="dialog" aria-modal="true"><div class="veil"></div><div class="sheet" id="sheet"></div></div>
+<div class="ov" id="lb" role="dialog" aria-modal="true" aria-label="照片"><div class="veil"></div>
+  <button class="close" data-x>關閉</button><div class="box" id="lbbox"></div>
+  <div class="bar"><button id="lbp">← 上一張</button><button id="lbn">下一張 →</button></div></div>
+
+<script>
+{
+/* ================= 內容資料：之後只改這一段 =================
+   圖片欄位留空 = 自動用主視覺語彙產生佔位圖 */
+const pad=n=>String(n).padStart(2,'0');
+
+/* 作品分類（名稱可直接改） */
+const CATS=['分類1','分類2','分類3','分類4','分類5'];
+/* 作品：一件一行。cat 分類｜zh 中文名｜en 英文名｜name 作者｜advisor 指導老師
+   img 主圖路徑 例 'works/01.jpg'｜ratio 圖寬÷高（直式 3:4 = 0.75）｜text 作品說明 */
+const WORKS=[
+  {cat:'分類1', zh:'縫隙裡的公共', en:'Commons in the Gaps', name:'學生 01', advisor:'待定', img:'', ratio:0.75, text:''},
+  {cat:'分類2', zh:'慢下來的車站', en:'A Slower Station', name:'學生 02', advisor:'待定', img:'', ratio:1, text:''},
+  {cat:'分類3', zh:'漂流的教室', en:'Drifting Classroom', name:'學生 03', advisor:'待定', img:'', ratio:1.33, text:''},
+  {cat:'分類4', zh:'留白之屋', en:'House of Blank Space', name:'學生 04', advisor:'待定', img:'', ratio:0.8, text:''},
+  {cat:'分類5', zh:'市場的第二層', en:'The Market Upstairs', name:'學生 05', advisor:'待定', img:'', ratio:0.7, text:''},
+  {cat:'分類1', zh:'河岸記憶', en:'Riverbank Memory', name:'學生 06', advisor:'待定', img:'', ratio:1.2, text:''},
+  {cat:'分類2', zh:'借景', en:'Borrowed Scenery', name:'學生 07', advisor:'待定', img:'', ratio:0.75, text:''},
+  {cat:'分類3', zh:'夜的邊界', en:'Edges of Night', name:'學生 08', advisor:'待定', img:'', ratio:1, text:''},
+  {cat:'分類4', zh:'拆與留', en:'Remove and Remain', name:'學生 09', advisor:'待定', img:'', ratio:1.33, text:''},
+  {cat:'分類5', zh:'共食的廚房', en:'Shared Kitchen', name:'學生 10', advisor:'待定', img:'', ratio:0.8, text:''},
+  {cat:'分類1', zh:'光的刻度', en:'Measures of Light', name:'學生 11', advisor:'待定', img:'', ratio:0.7, text:''},
+  {cat:'分類2', zh:'未完成的街角', en:'Unfinished Corner', name:'學生 12', advisor:'待定', img:'', ratio:1.2, text:''},
+  {cat:'分類3', zh:'縫隙裡的公共', en:'Commons in the Gaps', name:'學生 13', advisor:'待定', img:'', ratio:0.75, text:''},
+  {cat:'分類4', zh:'慢下來的車站', en:'A Slower Station', name:'學生 14', advisor:'待定', img:'', ratio:1, text:''},
+  {cat:'分類5', zh:'漂流的教室', en:'Drifting Classroom', name:'學生 15', advisor:'待定', img:'', ratio:1.33, text:''},
+  {cat:'分類1', zh:'留白之屋', en:'House of Blank Space', name:'學生 16', advisor:'待定', img:'', ratio:0.8, text:''},
+  {cat:'分類2', zh:'市場的第二層', en:'The Market Upstairs', name:'學生 17', advisor:'待定', img:'', ratio:0.7, text:''},
+  {cat:'分類3', zh:'河岸記憶', en:'Riverbank Memory', name:'學生 18', advisor:'待定', img:'', ratio:1.2, text:''},
+  {cat:'分類4', zh:'借景', en:'Borrowed Scenery', name:'學生 19', advisor:'待定', img:'', ratio:0.75, text:''},
+  {cat:'分類5', zh:'夜的邊界', en:'Edges of Night', name:'學生 20', advisor:'待定', img:'', ratio:1, text:''},
+  {cat:'分類1', zh:'拆與留', en:'Remove and Remain', name:'學生 21', advisor:'待定', img:'', ratio:1.33, text:''},
+  {cat:'分類2', zh:'共食的廚房', en:'Shared Kitchen', name:'學生 22', advisor:'待定', img:'', ratio:0.8, text:''},
+  {cat:'分類3', zh:'光的刻度', en:'Measures of Light', name:'學生 23', advisor:'待定', img:'', ratio:0.7, text:''},
+  {cat:'分類4', zh:'未完成的街角', en:'Unfinished Corner', name:'學生 24', advisor:'待定', img:'', ratio:1.2, text:''},
+  {cat:'分類5', zh:'縫隙裡的公共', en:'Commons in the Gaps', name:'學生 25', advisor:'待定', img:'', ratio:0.75, text:''},
+  {cat:'分類1', zh:'慢下來的車站', en:'A Slower Station', name:'學生 26', advisor:'待定', img:'', ratio:1, text:''},
+  {cat:'分類2', zh:'漂流的教室', en:'Drifting Classroom', name:'學生 27', advisor:'待定', img:'', ratio:1.33, text:''},
+];
+const DEFAULT_TEXT='作品說明待補。';
+
+/* 評圖回顧 */
+const SESSIONS=[
+  {zh:'四上交流評',en:'Exchange review · Fall',date:'日期待補',jurors:['評審 待補','評審 待補','評審 待補'],works:[1,4,7,10,13,16]},
+  {zh:'四下交流評',en:'Exchange review · Spring',date:'日期待補',jurors:['評審 待補','評審 待補','評審 待補'],works:[2,5,8,11,14,17]},
+  {zh:'其他',en:'Other reviews',date:'日期待補',jurors:['評審 待補','評審 待補'],works:[3,6,9,12,15,18]}];
+
+/* 展覽回顧 */
+/* 一場展覽一段。text 用空一行分段｜photos 照片檔名清單，例 ['recap/01/01.jpg', …]（留空 = 佔位圖，n 張）
+   照片排法：第 1 張滿版大圖，其後兩張一排；caps 可填每張的圖說 */
+const CHAPTERS=[
+  {zh:'中軸過程展',en:'Process exhibition',date:'日期待補',place:'地點待補',curator:'待補',text:'展覽說明待補：這場展覽在展什麼、為什麼辦。\n\n第二段可以寫佈展過程、展場的安排，或想讓觀眾帶走的東西。',photos:[],caps:[],n:7},
+  {zh:'四上素描教室展',en:'Sketch classroom exhibition',date:'日期待補',place:'地點待補',curator:'待補',text:'展覽說明待補。',photos:[],caps:[],n:5},
+  {zh:'設計學院五系聯展',en:'College of Design joint exhibition',date:'日期待補',place:'地點待補',curator:'待補',text:'展覽說明待補。',photos:[],caps:[],n:7},
+  {zh:'四下藝術中心展',en:'Art center exhibition',date:'日期待補',place:'地點待補',curator:'待補',text:'展覽說明待補。',photos:[],caps:[],n:5},
+  {zh:'北展－松菸展',en:'Taipei exhibition · Songshan',date:'日期待補',place:'松山文創園區',curator:'待補',text:'展覽說明待補。',photos:[],caps:[],n:7}];
+
+/* 訪談專欄：一篇一段
+   group 分組｜t 標題｜deck 摘要（列表與文章開頭）｜who 受訪者｜writer 文字｜photo 攝影｜date 日期
+   img 封面圖｜featured 放進上方精選輪播｜lead 導言｜quote 文中大字引言｜qa 問答，一組 ['問','答'] */
+const TALK_GROUPS=['教授專訪','雲科建築116級畢籌會'];
+const QA=[['問題待補','回答待補。訪談整理好後，把問答一組一組貼進來，這裡會自動排成問答格式。'],['問題待補','回答待補。'],['問題待補','回答待補。'],['問題待補','回答待補。']];
+const TALKS=[
+  {group:'教授專訪',t:'從一個問題開始做設計',deck:'摘要待補：用一兩句話說這篇訪談在談什麼，會出現在列表和文章開頭。',who:'教授 待補',writer:'待補',photo:'待補',date:'日期待補',len:'約 8 分鐘',img:'',featured:true,lead:'導言待補。',quote:'文中最有力的一句話，放這裡會變成大字引言。',qa:QA},
+  {group:'教授專訪',t:'評圖桌的另一邊',deck:'摘要待補。',who:'教授 待補',writer:'待補',photo:'待補',date:'日期待補',len:'約 6 分鐘',img:'',featured:false,lead:'導言待補。',quote:'',qa:QA},
+  {group:'教授專訪',t:'設計教育的下一步',deck:'摘要待補。',who:'教授 待補',writer:'待補',photo:'待補',date:'日期待補',len:'約 7 分鐘',img:'',featured:true,lead:'導言待補。',quote:'',qa:QA},
+  {group:'雲科建築116級畢籌會',t:'一場畢展是怎麼辦起來的',deck:'摘要待補。',who:'畢籌會 成員',writer:'待補',photo:'待補',date:'日期待補',len:'約 5 分鐘',img:'',featured:true,lead:'導言待補。',quote:'',qa:QA},
+  {group:'雲科建築116級畢籌會',t:'少即試多這個名字',deck:'摘要待補。',who:'畢籌會 成員',writer:'待補',photo:'待補',date:'日期待補',len:'約 4 分鐘',img:'',featured:false,lead:'導言待補。',quote:'',qa:QA},
+  {group:'雲科建築116級畢籌會',t:'從雲林到松菸',deck:'摘要待補。',who:'畢籌會 成員',writer:'待補',photo:'待補',date:'日期待補',len:'約 5 分鐘',img:'',featured:false,lead:'導言待補。',quote:'',qa:QA}];
+
+/* 周邊商品 */
+const SHOP=[
+  {name:'帆布袋',price:'NT$ 待定',text:'商品說明待補。',img:''},
+  {name:'明信片組',price:'NT$ 待定',text:'商品說明待補。',img:''},
+  {name:'貼紙組',price:'NT$ 待定',text:'商品說明待補。',img:''},
+  {name:'畢業專刊',price:'NT$ 待定',text:'商品說明待補。',img:''}];
+const BUY={text:'購買方式待公布',url:''};
+
+/* 關於 */
+const ABOUT={
+  host:'國立雲林科技大學建築與室內設計系116級畢籌會',
+  co:['國立雲林科技大學建築與室內設計系','國立雲林科技大學建築與室內設計系系友會'],
+  links:[{name:'畢籌會 Instagram',url:''},{name:'畢籌會 粉絲專頁',url:''},{name:'雲科建築系網',url:''}]};
+/* ========================================================== */
+
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function rng(s){return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* 點陣字 */
+function pixG(text,cell,mode,size=12){
+  const c=document.createElement('canvas'),x=c.getContext('2d'),f=`700 ${size}px Arial,Helvetica,sans-serif`;
+  x.font=f;const w=Math.ceil(x.measureText(text).width)+2,h=Math.ceil(size*1.3);c.width=w;c.height=h;x.font=f;x.fillText(text,1,Math.round(size*1.02));
+  const d=x.getImageData(0,0,w,h).data;let r='',y0=h,y1=0,x1=0;
+  for(let Y=0;Y<h;Y++)for(let X=0;X<w;X++)if(d[(Y*w+X)*4+3]>120){y0=Math.min(y0,Y);y1=Math.max(y1,Y);x1=Math.max(x1,X);
+    r+=mode==='solid'?`<rect x="${X*cell}" y="${Y*cell}" width="${cell+.3}" height="${cell+.3}"/>`:`<rect x="${X*cell+.6}" y="${Y*cell+.6}" width="${cell-1.2}" height="${cell-1.2}" fill="none" stroke-width="1"/>`}
+  return{vb:`0 ${y0*cell} ${(x1+1)*cell} ${(y1-y0+1)*cell}`,w:(x1+1)*cell,h:(y1-y0+1)*cell,body:r};
+}
+const pix=(t,c,m)=>{const g=pixG(t,c,m);return`<svg viewBox="${g.vb}">${g.body}</svg>`};
+$('#logo').innerHTML=`<div style="height:10px">${pix('Less is',2,'outline')}</div><div style="height:15px">${pix('trying',2,'solid')}</div><div style="height:10px">${pix('more',2,'outline')}</div>`;
+
+/* 作品佔位圖 */
+function art(i,ratio){
+  const r=rng(i*977+13),W=300,H=Math.round(300/ratio),k=i%4,light=k===3;
+  const bg=light?'#e6edc8':'#140d0c',fg=light?'#140d0c':'#e6edc8',ln=light?'rgba(20,13,12,.2)':'rgba(255,255,255,.16)';
+  let s=`<rect width="${W}" height="${H}" fill="${bg}"/><g fill="none" stroke="${ln}">`;
+  for(let g=1;g<4;g++)s+=`<line x1="${W*g/4}" y1="0" x2="${W*g/4}" y2="${H}"/><line x1="0" y1="${H*g/4}" x2="${W}" y2="${H*g/4}"/>`;
+  s+=`<circle cx="${W*(.3+r()*.4)}" cy="${H*(.3+r()*.4)}" r="${Math.min(W,H)*(.3+r()*.25)}"/><circle cx="${W*r()}" cy="${H*r()}" r="${Math.max(W,H)*.5}"/></g>`;
+  if(k===0){let x=W*.08,y=H*(.18+r()*.2);for(let j=0;j<6;j++){const w=30+r()*W*.3,h=14+r()*H*.14;s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fg}"/>`;x+=w*(.4+r()*.5);y+=h*.8;if(x>W*.8)x=W*.1}
+    s+=`<line x1="${W*.2}" y1="${H*.08}" x2="${W*.2}" y2="${H*.9}" stroke="#fff"/><line x1="${W*.05}" y1="${H*.6}" x2="${W*.95}" y2="${H*.6}" stroke="#fff"/>`}
+  if(k===1){const rows=4+Math.floor(r()*4),rh=H*.6/rows;for(let j=0;j<rows;j++){let x=W*.06+j*r()*14;while(x<W*.9){const w=4+r()*16;s+=`<rect x="${x}" y="${H*.2+j*rh}" width="${w}" height="${rh*.86}" fill="${fg}"/>`;x+=w+5+r()*14}}}
+  if(k===2){const cx=W*(.3+r()*.4),cy=H*(.3+r()*.4),a=Math.min(W,H)*.22;s+=`<rect x="${W*.1}" y="${H*.62}" width="${W*.5}" height="${H*.22}" fill="#b6c867"/>${star(cx,cy,a,fg)}`}
+  if(k===3){const n=9,bw=W*.5/n;for(let j=0;j<n;j++)s+=`<rect x="${W*.25+j*bw}" y="${H*.15}" width="${bw+.5}" height="${H*.7}" fill="rgb(${20+j*24},${13+j*25},${12+j*20})"/>`;s+=`<rect x="${W*.08}" y="${H*.1}" width="${W*.1}" height="${H*.3}" fill="${fg}"/>`}
+  const tx=r()>.5?W-30:12,ty=r()>.5?H-24:10;for(let j=0;j<3;j++)s+=`<rect x="${tx+j*6}" y="${ty}" width="3" height="14" fill="#e8561b"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`;
+}
+function star(cx,cy,a,f){return`<path d="M${cx},${cy-a}Q${cx},${cy} ${cx+a},${cy}Q${cx},${cy} ${cx},${cy+a}Q${cx},${cy} ${cx-a},${cy}Q${cx},${cy} ${cx},${cy-a}Z" fill="${f}"/>`}
+/* 照片佔位圖：展場的抽象透視 */
+function photo(i,label){
+  const r=rng(i*131+7),W=600,H=400,hz=H*(.38+r()*.14),vx=W*(.3+r()*.4);
+  let s=`<defs><linearGradient id="pg${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3e8cf"/><stop offset="1" stop-color="#c5cda3"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#pg${i})"/>`;
+  s+=`<polygon points="0,${H} ${W},${H} ${W},${hz+40} ${vx},${hz} 0,${hz+40}" fill="#a9b383"/>`;
+  for(let j=0;j<4;j++){const x=W*(.06+j*.24+r()*.06),w=W*(.1+r()*.08),y=hz-H*(.18+r()*.16),h=H*(.2+r()*.16);s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${r()>.3?'#140d0c':'#b6c867'}"/><rect x="${x}" y="${y+h}" width="${w}" height="6" fill="rgba(20,13,12,.18)"/>`}
+  for(let j=0;j<3;j++){const x=W*r(),h=H*(.16+r()*.08);s+=`<rect x="${x}" y="${hz+50-h}" width="${h*.22}" height="${h}" rx="${h*.11}" fill="rgba(20,13,12,.55)"/>`}
+  s+=`<g stroke="rgba(255,255,255,.45)"><line x1="${vx}" y1="${hz}" x2="0" y2="${H}"/><line x1="${vx}" y1="${hz}" x2="${W}" y2="${H}"/></g><text x="16" y="${H-16}" fill="#fff" font-size="16" font-family="Noto Sans TC,sans-serif">${label||''}</text>`;
+  return`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`;
+}
+const workPic=(w,i)=>w.img?`<img src="${w.img}" alt="${w.zh}" style="width:100%;height:100%;object-fit:cover;display:block">`:art(i,w.ratio);
+
+/* 牆面紋理 */
+function texture(h,W=1400){
+  const c=document.createElement('canvas');c.width=W;c.height=h;const x=c.getContext('2d'),r=rng(7);
+  x.fillStyle='#b6c867';x.fillRect(0,0,W,h);
+  for(let j=0;j<Math.round(W*h/56000);j++){const px=r()*W,py=r()*h,rot=(r()-.5)*.5,a=.16+r()*.26,w=120+r()*260,hh=90+r()*220;
+    for(const ox of[-W,0,W])for(const oy of[-h,0,h]){x.save();x.translate(px+ox,py+oy);x.rotate(rot);x.fillStyle=`rgba(240,245,214,${a})`;x.shadowColor='rgba(60,70,20,.16)';x.shadowBlur=8;x.fillRect(-w/2,-hh/2,w,hh);x.restore()}}
+  x.fillStyle='rgba(20,13,12,.4)';for(let X=14;X<W;X+=28)for(let Y=14;Y<h;Y+=28){x.beginPath();x.arc(X,Y,1.2,0,7);x.fill()}
+  return c.toDataURL('image/jpeg',.82);
+}
+$('#v-home').style.backgroundImage=`url(${texture(1000)})`;
+
+/* ================= 首頁：可互動的主視覺 ================= */
+const kv=$('#kv');let VB=[2400,1080],rows=[];
+const NAV={A:['about','關於','About'],B:['works','作品',`Works · ${WORKS.length}`],C:['crits','評圖回顧','Reviews'],D:['recap','展覽回顧','Recap'],E:['talks','訪談專欄','Conversations']};
+const poly=(b,pts)=>pts.map(([u,v])=>`${(b[0]+u*b[2]).toFixed(1)},${(b[1]+v*b[3]).toFixed(1)}`).join(' ');
+const ticks=pts=>pts.map(([x,y])=>`<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="#e8561b"/>`).join('');
+function hdim(x1,x2,y,t,F){return`<g stroke="#140d0c" stroke-width="1.5"><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/><line x1="${x1}" y1="${y-9}" x2="${x1}" y2="${y+9}"/><line x1="${x2}" y1="${y-9}" x2="${x2}" y2="${y+9}"/></g><text x="${(x1+x2)/2}" y="${y-12}" font-size="${F*.8}" text-anchor="middle" fill="#140d0c">${t}</text>`}
+function vdim(x,y1,y2,t,F){return`<g stroke="#140d0c" stroke-width="1.5"><line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"/><line x1="${x-9}" y1="${y1}" x2="${x+9}" y2="${y1}"/><line x1="${x-9}" y1="${y2}" x2="${x+9}" y2="${y2}"/></g><text transform="translate(${x-14},${(y1+y2)/2}) rotate(-90)" font-size="${F*.8}" text-anchor="middle" fill="#140d0c">${t}</text>`}
+const III=(x,y,s=1)=>[0,1,2].map(j=>`<rect x="${x+j*14*s}" y="${y}" width="${7*s}" height="${44*s}" fill="#e8561b"/>`).join('');
+const EQ=(x,y,s=1)=>[0,1,2].map(j=>`<rect x="${x}" y="${y+j*14*s}" width="${60*s}" height="${7*s}" fill="#e8561b"/>`).join('');
+function lab(b,k,F){const[go,zh,en]=NAV[k];return`<g class="lb"><rect x="${b[0]}" y="${b[1]-F*1.35}" width="${F*.5}" height="${F*.5}" fill="#e8561b"/><text x="${b[0]+F*.85}" y="${b[1]-F*.82}" font-size="${F}" font-weight="500">${zh}<tspan font-weight="300" dx="${F*.5}">${en}</tspan><tspan dx="${F*.4}">→</tspan></text></g>`}
+function nestPix(t,c,m,x,y,w){const g=pixG(t,c,m);return`<svg x="${x}" y="${y}" width="${w}" height="${w*g.h/g.w}" viewBox="${g.vb}" fill="#fff" stroke="#fff">${g.body}</svg>`}
+function buildKV(){
+  const P=innerWidth/(innerHeight-108)<1;VB=P?[1080,1960]:[2400,1080];
+  const L=P?{A:[60,70,960,430],B:[60,590,640,300],C:[60,960,960,200],D:[60,1235,960,310],E:[440,1650,580,290],G:[290,1640,56,300],F:42}
+           :{A:[150,120,1150,460],B:[1440,100,700,290],C:[1400,440,740,190],D:[150,670,1250,350],E:[1580,690,580,330],G:[1460,700,60,320],F:27};
+  const F=L.F,r=rng(3);let s='<defs>';
+  ['A','C','E'].forEach(k=>{const b=L[k];s+=`<clipPath id="cl${k}"><rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}"/></clipPath>`});s+='</defs>';
+  const grid=(b,c='rgba(255,255,255,.13)')=>{let g=`<g fill="none" stroke="${c}" stroke-width="1.5">`;for(const u of[.5,.66,.83])g+=`<line x1="${b[0]+u*b[2]}" y1="${b[1]}" x2="${b[0]+u*b[2]}" y2="${b[1]+b[3]}"/>`;for(const v of[.33,.66])g+=`<line x1="${b[0]}" y1="${b[1]+v*b[3]}" x2="${b[0]+b[2]}" y2="${b[1]+v*b[3]}"/>`;return g+`<circle cx="${b[0]+b[2]*.66}" cy="${b[1]+b[3]*.5}" r="${b[3]*.62}"/><circle cx="${b[0]+b[2]*.5}" cy="${b[1]+b[3]*.9}" r="${b[3]*1.05}"/></g>`};
+  /* A 標題板 */
+  let A=L.A;s+=`<g class="nb in" tabindex="0" role="link" aria-label="關於展覽" data-go="about" style="animation-delay:.05s">${lab(A,'A',F)}<g class="sh"><rect x="${A[0]}" y="${A[1]}" width="${A[2]}" height="${A[3]}" fill="#140d0c"/><g clip-path="url(#clA)">${grid(A)}${star(A[0]+A[2]*.66,A[1]+A[3]*.33,A[3]*.12,'rgba(255,255,255,.12)')}</g>
+    ${nestPix('Less is',5,'outline',A[0]+A[2]*.055,A[1]+A[3]*.12,A[2]*.27)}${nestPix('trying',7,'solid',A[0]+A[2]*.055,A[1]+A[3]*.36,A[2]*.5)}${nestPix('more',5,'outline',A[0]+A[2]*.055,A[1]+A[3]*.74,A[2]*.27)}
+    ${ticks([[A[0],A[1]],[A[0]+A[2],A[1]],[A[0],A[1]+A[3]],[A[0]+A[2],A[1]+A[3]]])}</g></g>`;
+  s+=`<g class="in" style="animation-delay:.1s">${III(A[0]+A[2]*.6,A[1]-62)}${III(A[0]+A[2]*.92,A[1]-62)}</g>`;
+  /* B 階梯平面 → 作品 */
+  const B=L.B,bp=[[0,0],[.55,0],[.55,.15],[.8,.15],[.8,0],[1,0],[1,1],[.8,1],[.8,.78],[.55,.78],[.55,.6],[.12,.6],[.12,.38],[0,.38]];
+  let comb='';for(let j=0;j<5;j++)comb+=`<rect x="${B[0]+B[2]*.68}" y="${B[1]+B[3]*(.22+j*.1)}" width="${B[2]*.12}" height="${B[3]*.05}" fill="#e7edcc"/>`;
+  s+=`<g class="nb in" tabindex="0" role="link" aria-label="作品" data-go="works" style="animation-delay:.15s">${lab(B,'B',F)}<g class="sh"><polygon points="${poly(B,bp)}" fill="#140d0c"/>${comb}
+    <g stroke="#fff" stroke-width="2"><line x1="${B[0]+B[2]*.1}" y1="${B[1]-B[3]*.05}" x2="${B[0]+B[2]*.1}" y2="${B[1]+B[3]*.75}"/><line x1="${B[0]+B[2]*.02}" y1="${B[1]+B[3]*.3}" x2="${B[0]+B[2]*.62}" y2="${B[1]+B[3]*.3}"/><line x1="${B[0]+B[2]*.62}" y1="${B[1]+B[3]*.12}" x2="${B[0]+B[2]*.62}" y2="${B[1]+B[3]*.95}"/></g>
+    ${ticks([[B[0],B[1]],[B[0]+B[2],B[1]],[B[0]+B[2],B[1]+B[3]],[B[0]+B[2]*.12,B[1]+B[3]*.6],[B[0]+B[2]*.55,B[1]+B[3]*.78]])}</g></g>`;
+  s+=hdim(B[0]+B[2]*.4,B[0]+B[2],B[1]-F*2.2,'2,111',F).replace('<g ','<g class="in" ');
+  /* C 條碼 → 評圖 */
+  const C=L.C;let bars='';rows=[];
+  for(let j=0;j<4;j++){let x=C[0]-120,row='';while(x<C[0]+C[2]*.66){const w=14+r()*44;row+=`<rect x="${x.toFixed(1)}" y="${(C[1]+j*C[3]/4).toFixed(1)}" width="${w.toFixed(1)}" height="${(C[3]/4*.84).toFixed(1)}" fill="#140d0c"/>`;x+=w+10+r()*26}bars+=`<g class="row">${row}</g>`}
+  const mx=C[0]+C[2]*.97,man=P?['Less is "Trying" More.']:['Every idea begins with a try.','Less certainty. More exploration.','Less fear. More possibility.'];
+  s+=`<g class="nb in" tabindex="0" role="link" aria-label="評圖回顧" data-go="crits" style="animation-delay:.25s">${lab(C,'C',F)}<g class="sh"><g clip-path="url(#clC)"><rect x="${C[0]}" y="${C[1]}" width="${C[2]}" height="${C[3]}" fill="rgba(0,0,0,0)"/>${bars}</g><rect x="${C[0]+C[2]*.64}" y="${C[1]}" width="${C[2]*.36}" height="${C[3]}" fill="#140d0c"/>
+    ${man.map((t,j)=>`<text x="${mx}" y="${C[1]+C[3]*(.3+j*.25)}" font-size="${F*.62}" font-weight="300" text-anchor="end" fill="#e7edcc">${t}</text>`).join('')}</g></g>`;
+  /* D 長階梯 → 展覽回顧 */
+  const D=L.D,dp=[[0,.4],[.45,.4],[.45,0],[.72,0],[.72,.25],[1,.25],[1,.7],[.86,.7],[.86,1],[.45,1],[.45,.88],[0,.88]];
+  let cb='';for(let x=D[0]+D[2]*.07;x<D[0]+D[2]*.34;){const w=6+r()*12;cb+=`<rect x="${x.toFixed(1)}" y="${D[1]+D[3]*.04}" width="${w.toFixed(1)}" height="${D[3]*.36}" fill="#140d0c"/>`;x+=w+8}
+  let plus='';for(let x=D[0]+18;x<D[0]+D[2]*.2;x+=26)for(let y=D[1]+D[3]*.44;y<D[1]+D[3]*.86;y+=26)plus+=`<path d="M${x-5},${y}h10M${x},${y-5}v10"/>`;
+  s+=`<g class="nb in" tabindex="0" role="link" aria-label="展覽回顧" data-go="recap" style="animation-delay:.35s">${lab([D[0]+D[2]*.47,D[1]],'D',F)}<g class="sh">${cb}<polygon points="${poly(D,dp)}" fill="#140d0c"/><g stroke="rgba(255,255,255,.28)" stroke-width="1.5">${plus}</g>
+    <g stroke="#fff" stroke-width="2"><line x1="${D[0]}" y1="${D[1]+D[3]*.8}" x2="${D[0]+D[2]*.52}" y2="${D[1]+D[3]*.8}"/><line x1="${D[0]+D[2]*.33}" y1="${D[1]+D[3]*.3}" x2="${D[0]+D[2]*.33}" y2="${D[1]+D[3]*.95}"/><line x1="${D[0]+D[2]*.78}" y1="${D[1]+D[3]*.1}" x2="${D[0]+D[2]*.78}" y2="${D[1]+D[3]*.85}"/><line x1="${D[0]+D[2]*.5}" y1="${D[1]+D[3]*.93}" x2="${D[0]+D[2]*.98}" y2="${D[1]+D[3]*.93}"/></g>
+    ${ticks([[D[0],D[1]+D[3]*.4],[D[0]+D[2]*.45,D[1]],[D[0]+D[2]*.72,D[1]],[D[0]+D[2],D[1]+D[3]*.25],[D[0],D[1]+D[3]*.88],[D[0]+D[2]*.86,D[1]+D[3]]])}</g></g>`;
+  s+=vdim(D[0]-28,D[1]+D[3]*.4,D[1]+D[3]*.88,'2,026',F).replace('<g ','<g class="in" ');
+  /* G 漸層條 */
+  const G=L.G;for(let j=0;j<10;j++){const c=20+j*20;s+=`<rect class="in" style="animation-delay:.4s" x="${G[0]}" y="${G[1]+j*G[3]/10}" width="${G[2]}" height="${G[3]/10+1}" fill="rgb(${c},${c+4},${c-6})"/>`}
+  /* E 方板 → 訪談 */
+  const E=L.E,zx=E[0]+E[2]*.86;
+  s+=`<g class="nb in" tabindex="0" role="link" aria-label="訪談專欄" data-go="talks" style="animation-delay:.45s">${lab(E,'E',F)}<g class="sh"><rect x="${E[0]}" y="${E[1]}" width="${E[2]}" height="${E[3]}" fill="#140d0c"/><g clip-path="url(#clE)">${grid(E)}</g>${star(E[0]+E[2]*.5,E[1]+E[3]*.66,E[3]*.07,'rgba(255,255,255,.3)')}
+    ${'少即試多'.split('').map((c,j)=>`<text x="${zx}" y="${E[1]+E[3]*.12+F*1.5*(j+1)}" font-size="${F*1.4}" font-weight="300" text-anchor="middle" fill="#fff">${c}</text>`).join('')}
+    ${(P?['雲科大 建築與室內設計系','116級畢業設計']:['國立雲林科技大學 建築與室內設計系','116級畢業設計','116th Graduation Exhibition']).map((t,j)=>`<text x="${E[0]+E[2]*.05}" y="${E[1]+E[3]*(P?.74+j*.13:.7+j*.1)}" font-size="${F*(P?.7:.6)}" font-weight="300" fill="#e7edcc">${t}</text>`).join('')}
+    ${ticks([[E[0],E[1]],[E[0]+E[2],E[1]],[E[0],E[1]+E[3]],[E[0]+E[2],E[1]+E[3]]])}</g></g>`;
+  s+=`<g class="in" style="animation-delay:.5s">${EQ(E[0]-80,E[1]+30)}${P?'':EQ(E[0]+E[2]-30,E[1]+E[3]*.72)}</g>`;
+  /* 游標十字靶 */
+  s+=`<g id="cur" style="display:none"><line x1="-36" y1="0" x2="36" y2="0" stroke="#140d0c" stroke-width="2"/><line x1="0" y1="-36" x2="0" y2="36" stroke="#140d0c" stroke-width="2"/><circle r="15" fill="#e7edcc" stroke="#140d0c" stroke-width="2"/><path d="M0,0L0,-15A15,15 0 0 1 15,0Z M0,0L0,15A15,15 0 0 1 -15,0Z" fill="#140d0c"/></g>`;
+  kv.setAttribute('viewBox',`0 0 ${VB[0]} ${VB[1]}`);kv.setAttribute('font-family','Noto Sans TC,sans-serif');kv.innerHTML=s;
+  rows=[...kv.querySelectorAll('.row')];
+  kv.querySelectorAll('.nb').forEach(n=>{n.addEventListener('click',()=>enter(n));n.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(n)}})});
+}
+kv.addEventListener('pointermove',e=>{
+  const m=kv.getScreenCTM();if(!m)return;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
+  const c=$('#cur');if(e.pointerType==='mouse'){c.style.display='';c.setAttribute('transform',`translate(${p.x.toFixed(0)},${p.y.toFixed(0)})`)}
+  if(e.pointerType==='mouse')$('#xy').textContent=`x ${Math.round(p.x).toLocaleString('en')} · y ${Math.round(p.y).toLocaleString('en')}`;
+  const u=p.x/VB[0]-.5;rows.forEach((g,j)=>g.setAttribute('transform',`translate(${(u*160*(j%2?1:-1)*(1+j*.3)).toFixed(1)},0)`));
+});
+kv.addEventListener('pointerleave',()=>{const c=$('#cur');if(c)c.style.display='none'});
+
+/* 圖塊展開成單元 */
+const wipe=$('#wipe');
+function enter(n){
+  const go=n.dataset.go;if(reduce){location.hash=go;return}
+  const r=n.querySelector('.sh').getBoundingClientRect();
+  Object.assign(wipe.style,{display:'block',transition:'none',opacity:1,left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{wipe.style.transition='all .55s cubic-bezier(.7,0,.2,1)';Object.assign(wipe.style,{left:0,top:0,width:'100vw',height:'100vh'})}));
+  setTimeout(()=>{location.hash=go;wipe.style.transition='opacity .45s';wipe.style.opacity=0;setTimeout(()=>wipe.style.display='none',460)},600);
+}
+
+/* ================= 作品展牆 ================= */
+const world=$('#world'),stage=$('#stage');
+let T=360,P=[],A=[],segs=[],R,Dz,HP,WH,SEGW,tex,rot=0,target=0,cur=0;const SEG=3,rad=Math.PI/180,OFF=120;
+let FILT='全部',LIST=[];
+function setList(){LIST=WORKS.map((w,i)=>i).filter(i=>FILT==='全部'||WORKS[i].cat===FILT)}
+function drawFilt(){$('#filt').innerHTML=['全部',...CATS].map(c=>`<button aria-pressed="${c===FILT}" data-c="${c}">${c}<small>${c==='全部'?WORKS.length:WORKS.filter(w=>w.cat===c).length}</small></button>`).join('')}
+$('#filt').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;FILT=b.dataset.c;cur=0;drawFilt();buildWall();caption()});
+function buildWall(){setList();
+  world.innerHTML='';P=[];segs=[];const vw=innerWidth,vh=innerHeight;
+  HP=Math.round(Math.max(170,Math.min(320,vh*.31,vw*.58)));R=Math.max(1000,vw*1.05);Dz=R-Math.min(260,vw*.3);
+  stage.style.perspective=Math.round(R*.85)+'px';world.style.transform=`translateZ(${Dz}px)`;
+  WH=Math.round(HP*2.35);tex=tex&&tex.h===WH?tex:{h:WH,url:texture(WH)};SEGW=2*(R+OFF)*Math.tan(SEG/2*rad)+3;
+  for(let a=-81;a<=81;a+=SEG){const s=document.createElement('div');s.className='seg';
+    s.style.cssText=`width:${SEGW}px;height:${WH}px;background-image:url(${tex.url});background-size:1400px ${WH}px;transform:rotateY(${-a}deg) translateZ(${-R-OFF}px) translate(-50%,-52%)`;s.dataset.a=a;world.appendChild(s);segs.push(s)}
+  let ang=0;A=[];
+  LIST.forEach((wi,i)=>{const w=WORKS[wi],wd=Math.round(HP*w.ratio);if(i)ang+=((P[i-1].w/2)+Math.max(70,HP*.42)+wd/2)/R/rad;A.push(ang);
+    const el=document.createElement('div');el.className='p';el.dataset.i=i;el.style.width=wd+'px';el.style.height=(HP+30)+'px';
+    el.innerHTML=`<div class="dim"><span>${Math.round(wd*4.2)}</span></div><div class="art ticks">${workPic(w,wi)}</div><div class="lab"><b>${pad(wi+1)}　${w.zh}</b><i>${w.name}</i></div>`;
+    world.appendChild(el);P.push({el,w:wd})});
+  if(!P.length)return;T=Math.max(ang+((P[P.length-1].w/2)+Math.max(70,HP*.42)+P[0].w/2)/R/rad,150);
+  target=rot=A[cur]||0;renderWall();
+}
+function renderWall(){
+  for(const s of segs){const a=+s.dataset.a;s.style.backgroundPositionX=(-((a+rot)*rad*(R+OFF))+SEGW/2).toFixed(1)+'px'}
+  P.forEach((p,i)=>{const phi=wrap(A[i]-rot),z=Dz-R*Math.cos(phi*rad);
+    if(Math.abs(phi)>70||z>R*.55){p.el.style.visibility='hidden';return}
+    p.el.style.visibility='';p.el.style.transform=`rotateY(${-phi}deg) translateZ(${-R}px) translate(-50%,calc(-50% - 15px))`});
+  $('#rd').textContent=Math.round((((rot%T)+T)%T)*rad*R*2).toLocaleString('en');
+  const n=nearest(rot);if(n!==cur){cur=n;caption()}
+}
+const wrap=x=>((x%T)+T*1.5)%T-T/2;
+function nearest(v){let b=0,d=1e9;A.forEach((a,i)=>{const e=Math.abs(wrap(a-v));if(e<d){d=e;b=i}});return b}
+function caption(){const wi=LIST[cur];if(wi===undefined)return;const w=WORKS[wi],c=$('#cap');c.querySelector('.n').textContent=`${pad(cur+1)} / ${LIST.length}　${w.cat}`;c.querySelector('.t').textContent=w.zh;c.querySelector('.a').textContent=`${w.name}　·　點作品看詳情，往左往右都能拖`}
+let dragging=false,lastX=0,vel=0,moved=0,downEl=null,wheelT;
+function loop(){if(view==='works'){if(!dragging){const d=target-rot;rot=Math.abs(d)<.002?target:rot+d*(reduce?1:.1)}renderWall()}requestAnimationFrame(loop)}
+function goW(i){const n=A.length;i=((i%n)+n)%n;target=target+wrap(A[i]-target)}
+const kk=()=>R*rad/1.15;
+function wstep(d){goW(nearest(target)+d)}
+$('#wl').onclick=()=>wstep(-1);$('#wr').onclick=()=>wstep(1);
+stage.addEventListener('pointerdown',e=>{dragging=true;moved=0;vel=0;lastX=e.clientX;downEl=e.target.closest('.p');stage.setPointerCapture(e.pointerId);stage.classList.add('drag')});
+stage.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-lastX;lastX=e.clientX;moved+=Math.abs(dx);vel=-dx/kk();rot+=vel;target=rot});
+const up=()=>{if(!dragging)return;dragging=false;stage.classList.remove('drag');
+  if(moved<6&&downEl){const i=+downEl.dataset.i;if(i===cur)openWork(LIST[i]);else goW(i);return}goW(nearest(rot+vel*12))};
+stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+stage.addEventListener('wheel',e=>{e.preventDefault();target+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)/kk()*.6;clearTimeout(wheelT);wheelT=setTimeout(()=>goW(nearest(target)),160)},{passive:false});
+
+/* ================= 黑板浮層 ================= */
+const det=$('#det'),sheet=$('#sheet');let openI=0,openKind='';
+const decoSVG='<svg class="deco" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="rgba(255,255,255,.12)"><line x1="166" y1="0" x2="166" y2="1000"/><line x1="500" y1="0" x2="500" y2="1000"/><line x1="833" y1="0" x2="833" y2="1000"/><circle cx="640" cy="420" r="380"/><circle cx="300" cy="700" r="520"/></g></svg>';
+function setHash(h){try{history.replaceState(null,'','#'+h)}catch(e){}}
+function focusWork(i){if(!LIST.includes(i)){FILT='全部';drawFilt();buildWall()}const k=LIST.indexOf(i);cur=k;rot=target=A[k];renderWall();caption()}
+function openWork(i){openI=i;openKind='work';const w=WORKS[i];
+  sheet.innerHTML=decoSVG+`<button class="x" data-x>關閉</button><div class="dg">
+   <div><div class="bigart ticks">${w.img?`<img src="${w.img}" alt="${w.zh}" style="width:100%;display:block">`:art(i,w.ratio)}</div>
+     <div class="thumbs">${[1,2,3].map(t=>`<div>${art(i*31+t+40,4/3)}</div>`).join('')}</div></div>
+   <div class="info"><h2 class="vt">${w.zh}</h2><div class="no">No.${pad(i+1)}　${w.cat}</div><p class="en2">${w.en}</p>
+     <dl><dt>作者</dt><dd>${w.name}</dd><dt>指導老師</dt><dd>${w.advisor}</dd><dt>類別</dt><dd>${w.cat}</dd></dl>
+     <p class="txt">${w.text||DEFAULT_TEXT}</p><div class="pn"><button data-s="-1">← 上一件</button><button data-s="1">下一件 →</button></div>
+     <p class="dk">目前圖面與文字為示意佔位，作品完成後替換。</p></div></div>`;
+  showSheet('work-'+pad(i+1),w.zh);
+}
+function showSheet(h,label){det.setAttribute('aria-label',label);sheet.scrollTop=0;det.classList.add('on');setHash(h);sheet.querySelector('.x').focus()}
+sheet.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.x!==undefined)return closeOv();if(b.dataset.s)stepOv(+b.dataset.s)});
+function stepOv(d){if(openKind==='work'){const n=LIST.length,k=(LIST.indexOf(openI)+d+n)%n;goW(k);openWork(LIST[k])}}
+function closeOv(){const was=det.classList.contains('on');$$('.ov.on').forEach(o=>o.classList.remove('on'));if(was)setHash(view)}
+$$('.veil,[data-x]').forEach(b=>b.addEventListener('click',closeOv));
+
+/* 照片燈箱 */
+let LB=[],lbi=0;
+function openLB(list,i){LB=list;lbi=i;drawLB();$('#lb').classList.add('on')}
+function drawLB(){const p=LB[lbi];$('#lbbox').innerHTML=`<div class="pic">${p.img?`<img src="${p.img}" alt="${p.label}" style="width:100%;height:100%;object-fit:contain;display:block;background:var(--ink)">`:photo(p.seed,p.label)}</div>`}
+$('#lbp').onclick=()=>{lbi=(lbi-1+LB.length)%LB.length;drawLB()};$('#lbn').onclick=()=>{lbi=(lbi+1)%LB.length;drawLB()};
+
+/* ================= 展覽回顧 ================= */
+const ptn=['w','s','s','h','h','w','s','s'];
+$('#chaps').innerHTML=CHAPTERS.map((c,ci)=>{const k=c.photos.length||c.n;
+  c.ph=Array.from({length:k},(_,j)=>({seed:ci*20+j,img:c.photos[j]||'',label:c.caps[j]||`${c.zh} ${pad(j+1)}`}));
+  return`<section class="chap" id="ex-${ci+1}"><div class="gal">${c.ph.map((p,j)=>`<button class="shot ${ptn[j%ptn.length]}" data-c="${ci}" data-j="${j}" aria-label="${p.label}"><div class="pic">${p.img?`<img src="${p.img}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`:photo(p.seed)}</div><i>${pad(j+1)}</i></button>`).join('')}</div>
+   <div class="ctext"><div class="no">展覽 ${pad(ci+1)} / ${pad(CHAPTERS.length)}</div><h2>${c.zh}</h2><p class="en">${c.en}</p>
+    <dl><dt>日期</dt><dd>${c.date}</dd><dt>地點</dt><dd>${c.place}</dd><dt>策展</dt><dd>${c.curator}</dd></dl>
+    ${c.text.split('\n\n').map(t=>`<p>${t}</p>`).join('')}<div class="cnt">照片 ${k} 張　·　點照片可放大</div></div></section>`}).join('');
+$('#rtabs').innerHTML=CHAPTERS.map((c,i)=>`<a href="#recap" data-x="${i+1}">${c.zh}</a>`).join('');
+$('#rtabs').addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;e.preventDefault();$('#ex-'+a.dataset.x).scrollIntoView({behavior:reduce?'auto':'smooth'})});
+$('#v-recap').addEventListener('scroll',()=>{let on=0;$$('.chap').forEach((el,i)=>{if(el.getBoundingClientRect().top<200)on=i});$$('#rtabs a').forEach((a,i)=>a.toggleAttribute('aria-current',i===on))});
+$$('#rtabs a')[0]&&$$('#rtabs a')[0].setAttribute('aria-current','');
+$('#chaps').addEventListener('click',e=>{const b=e.target.closest('.shot');if(b)openLB(CHAPTERS[+b.dataset.c].ph,+b.dataset.j)});
+
+/* ================= 評圖回顧 ================= */
+let si=0;
+function drawCrits(){
+  $('#sruler').innerHTML=SESSIONS.map((s,i)=>`<button aria-pressed="${i===si}" data-i="${i}" style="left:${(i+.5)*100/SESSIONS.length}%">${s.zh}<small>${s.date}</small></button>`).join('');
+  const s=SESSIONS[si];
+  $('#sess').innerHTML=`<div><div class="pic big">${photo(500+si*10)}</div><div class="row3">${[1,2,3].map(k=>`<div class="pic">${photo(500+si*10+k)}</div>`).join('')}</div></div>
+   <div><h2>${s.zh}</h2><div class="note">${s.en}　·　${s.date}</div>
+    <dl><dt>評審</dt><dd>${s.jurors.join('<br>')}</dd><dt>紀錄</dt><dd>待補</dd></dl>
+    <p style="margin:0;color:var(--mute)">這裡放這場評圖的重點整理：評審反覆問到的問題、全班普遍被提醒的地方，大約 200 字。內容整理後替換。</p>
+    <h3>本場上台作品</h3><div class="wk">${s.works.map(n=>`<button data-w="${n-1}"><div class="th">${workPic(WORKS[n-1],n-1)}</div>${pad(n)}　${WORKS[n-1].zh}</button>`).join('')}</div></div>`;
+}
+$('#sruler').addEventListener('click',e=>{const b=e.target.closest('button');if(b){si=+b.dataset.i;drawCrits()}});
+$('#sess').addEventListener('click',e=>{const b=e.target.closest('[data-w]');if(!b)return;const i=+b.dataset.w;location.hash='works';setTimeout(()=>{focusWork(i);openWork(i)},350)});
+drawCrits();
+
+/* ================= 訪談 ================= */
+const hov=$('#hov');
+const tpic=(t,i,seed=300)=>t.img?`<img src="${t.img}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`:photo(i+seed);
+const titem=i=>{const t=TALKS[i];return`<button class="titem" data-t="${i}"><div class="pic">${tpic(t,i)}</div><div><span class="kk">【${t.group}】</span><h3>${t.t}</h3><p>${t.deck}</p><span class="meta">${t.date}　·　${t.len}</span></div></button>`};
+let TG='全部',FE=TALKS.map((t,i)=>i).filter(i=>TALKS[i].featured),fi=0;if(!FE.length)FE=[0];
+function drawTalks(){
+  $('#ttabs').innerHTML=['全部',...TALK_GROUPS].map(g=>`<button aria-pressed="${g===TG}" data-g="${g}">${g}</button>`).join('');
+  const fe=FE.filter(i=>TG==='全部'||TALKS[i].group===TG),k=fe[fi%Math.max(1,fe.length)];
+  $('#feat').style.display=fe.length?'':'none';
+  if(fe.length){const t=TALKS[k];$('#feat').dataset.t=k;$('#feat').innerHTML=`<div class="pic">${tpic(t,k)}</div><div><span class="kk">精選　·　${t.group}</span><h2>${t.t}</h2><p class="dk2">${t.deck}</p><div class="meta">受訪者 ${t.who}　·　${t.date}　·　${t.len}</div>
+    ${fe.length>1?`<div class="fnav"><button data-d="-1" aria-label="上一篇精選">←</button><button data-d="1" aria-label="下一篇精選">→</button><span>${pad(fi%fe.length+1)} / ${pad(fe.length)}</span></div>`:''}</div>`}
+  $('#tl').innerHTML=TALK_GROUPS.filter(g=>TG==='全部'||g===TG).map(g=>{const ids=TALKS.map((t,i)=>i).filter(i=>TALKS[i].group===g);return`<h2 class="grp">${g}<span>${ids.length} 篇</span></h2><div class="tgrid">${ids.map(titem).join('')}</div>`}).join('');
+}
+$('#ttabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;TG=b.dataset.g;fi=0;drawTalks()});
+$('#feat').addEventListener('click',e=>{const d=e.target.closest('[data-d]');if(d){e.stopPropagation();fi=fi+ +d.dataset.d+100;drawTalks();return}location.hash='talk-'+pad(+$('#feat').dataset.t+1)});
+$('#feat').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='feat')location.hash='talk-'+pad(+$('#feat').dataset.t+1)});
+$('#tl').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b)location.hash='talk-'+pad(+b.dataset.t+1)});
+drawTalks();
+function renderTalk(i){const t=TALKS[i];let body='';
+  t.qa.forEach(([q,a],j)=>{body+=`<p class="q">${q}</p><p class="a">${a}</p>`;if(j===1&&t.quote)body+=`<blockquote class="pq">${t.quote}</blockquote>`;if(j===2)body+=`<figure><div class="pic">${photo(i*7+700)}</div><figcaption>圖說待補。攝影／${t.photo}</figcaption></figure>`});
+  const others=TALKS.map((x,j)=>j).filter(j=>j!==i).sort((a,b)=>(TALKS[b].group===t.group)-(TALKS[a].group===t.group)).slice(0,3);
+  $('#art').innerHTML=`<div class="rhead"><a class="back" href="#talks">← 訪談專欄</a><br><span class="kk">【${t.group}】</span><h1>${t.t}</h1><p class="dk2">${t.deck}</p></div>
+   <div class="hero"><div class="pic">${tpic(t,i)}</div><p class="cap">封面圖說待補。</p></div>
+   <div class="by"><span><b>受訪者</b>${t.who}</span><span><b>文字</b>${t.writer}</span><span><b>攝影</b>${t.photo}</span><span><b>日期</b>${t.date}</span><span><b>閱讀</b>${t.len}</span></div>
+   <div class="body"><p class="lead">${t.lead}</p>${body}<p class="note" style="margin-top:40px">目前內容為示意佔位。</p></div>
+   <section class="more"><h2>延伸閱讀</h2><div class="tgrid">${others.map(titem).join('')}</div></section>`;
+  $('#v-talk').scrollTop=0;$('#prog').style.width=0;
+}
+$('#art').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b)location.hash='talk-'+pad(+b.dataset.t+1)});
+$('#v-talk').addEventListener('scroll',e=>{const v=e.target;$('#prog').style.width=(100*v.scrollTop/Math.max(1,v.scrollHeight-v.clientHeight))+'%'});
+
+/* ================= 關於、周邊 ================= */
+const lk=l=>l.url?`<a href="${l.url}" target="_blank" rel="noopener">${l.name}</a>`:`<span class="off">${l.name}（連結待補）</span>`;
+$('#cred').innerHTML=`<div><h3>主辦</h3>${ABOUT.host}</div><div><h3>協辦</h3>${ABOUT.co.join('<br>')}</div><div class="links"><h3>其他網站</h3>${ABOUT.links.map(lk).join('<br>')}</div>`;
+$('#shop').innerHTML=SHOP.map((it,i)=>`<div class="item"><div class="pic ticks">${it.img?`<img src="${it.img}" alt="${it.name}" style="width:100%;height:100%;object-fit:cover;display:block">`:art(i*5+2,1)}</div><h2>${it.name}<span>${it.price}</span></h2><p>${it.text}</p></div>`).join('');
+$('#buy').innerHTML=`<b>購買方式</b><span class="links">${BUY.url?lk({name:BUY.text,url:BUY.url}):BUY.text}</span>`;
+
+/* ================= 路由 ================= */
+const VIEWS=['home','works','recap','crits','talks','about','shop'];let view='';
+function show(v){if(v===view)return;view=v;$$('.view').forEach(el=>el.classList.toggle('on',el.id==='v-'+v));
+  $$('#nav a,.quick a').forEach(a=>a.toggleAttribute('aria-current',a.getAttribute('href')==='#'+v));
+  if(v==='home')buildKV();hov.classList.remove('on');const el=$('#v-'+v);if(el.scrollTop)el.scrollTop=0}
+function route(){const h=location.hash.slice(1)||'home';let m;
+  if(m=h.match(/^work-(\d+)$/)){const i=Math.min(WORKS.length,Math.max(1,+m[1]))-1;show('works');focusWork(i);openWork(i);return}
+  if(m=h.match(/^talk-(\d+)$/)){const i=Math.min(TALKS.length,Math.max(1,+m[1]))-1;$$('.ov.on').forEach(o=>o.classList.remove('on'));renderTalk(i);show('talk');$$('#nav a,.quick a').forEach(a=>a.toggleAttribute('aria-current',a.getAttribute('href')==='#talks'));return}
+  $$('.ov.on').forEach(o=>o.classList.remove('on'));show(VIEWS.includes(h)?h:'home');
+}
+addEventListener('hashchange',()=>{setMenu(false);route()});
+const mb=$('#mb');function setMenu(o){document.body.classList.toggle('menu',o);mb.setAttribute('aria-expanded',o);mb.textContent=o?'關閉':'選單'}
+mb.onclick=()=>setMenu(!document.body.classList.contains('menu'));
+$$('#nav a').forEach(a=>a.addEventListener('click',()=>setMenu(false)));
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){setMenu(false);return closeOv()}
+  if($('#lb').classList.contains('on')){if(e.key==='ArrowRight')$('#lbn').click();if(e.key==='ArrowLeft')$('#lbp').click();return}
+  if(det.classList.contains('on')){if(e.key==='ArrowRight')stepOv(1);if(e.key==='ArrowLeft')stepOv(-1);return}
+  if(view!=='works')return;
+  if(e.key==='ArrowRight')wstep(1);if(e.key==='ArrowLeft')wstep(-1);if(e.key==='Enter'){e.preventDefault();openWork(LIST[cur])}});
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{buildWall();if(view==='home')buildKV()},150)});
+
+drawFilt();buildWall();caption();route();requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
